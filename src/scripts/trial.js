@@ -1,0 +1,1 @@
+((key)=>console.log("my args", key))(process.argv[2])

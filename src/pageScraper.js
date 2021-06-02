@@ -1,10 +1,20 @@
 const scraperObject = {
     url: 'http://books.toscrape.com',
-    async scraper(browser){
+    async scraper(browser, category){
         let page = await browser.newPage();
         console.log(`Navigating to ${this.url}...`);
         // Navigate to the selected page
         await page.goto(this.url);
+        // Select the category of book to be displayed
+        let selectedCategory = await page.$$eval('.side_categories > ul > li > ul > li > a', (links, _category) => {
+
+            // Search for the element that has the matching text
+            links = links.map(a => a.textContent.replace(/(\r\n\t|\n|\r|\t|^\s|\s$|\B\s|\s\B)/gm, "") === _category ? a : null);
+            let link = links.filter(tx => tx !== null)[0];
+            return link.href;
+        }, category);
+        // Navigate to the selected category
+        await page.goto(selectedCategory);
         let scrapedData = [];
         // Wait for the required DOM to be rendered
         async function scrapeCurrentPage(){
@@ -12,9 +22,9 @@ const scraperObject = {
             // Get the link to all the required books
             let urls = await page.$$eval('section ol > li', links => {
                 // Make sure the book to be scraped is in stock
-                links = links.filter(link => link.querySelector('.instock.availability > i')?.textContent !== "In stock")
+                links = links.filter(link => link.querySelector('.instock.availability > i').textContent !== "In stock")
                 // Extract the links from the data
-                links = links.map(el => el.querySelector('h3 > a')?.href)
+                links = links.map(el => el.querySelector('h3 > a').href)
                 return links;
             });
             // Loop through each of those links, open a new page instance and get the relevant data from them
@@ -33,7 +43,7 @@ const scraperObject = {
                     return stockAvailable;
                 });
                 dataObj['imageUrl'] = await newPage.$eval('#product_gallery img', img => img.src);
-                // dataObj['bookDescription'] = await newPage.$eval('#product_description', div => div.nextSibling.textContent);
+                dataObj['bookDescription'] = await newPage.$eval('#product_description', div => div.nextSibling.textContent);
                 dataObj['upc'] = await newPage.$eval('.table.table-striped > tbody > tr > td', table => table.textContent);
                 resolve(dataObj);
                 await newPage.close();
